@@ -396,42 +396,30 @@
       let workersList = [];
 
       if (supabaseClient && !IS_DEMO) {
-        // Obtenemos TODOS los registros de este DNI
+        // 1 SOLA LLAMADA A LA API: Trae todos los registros y cruza con directorio
         const { data: workersData, error } = await supabaseClient
           .from('trabajadores_sctr')
-          .select('*')
+          .select(`
+            *,
+            directorio ( Propietario )
+          `)
           .eq('dni', dni);
 
+        if (error) console.error("Error de Supabase:", error);
+
         if (workersData && workersData.length > 0) {
-          // Buscamos el propietario para cada casa registrada
-          for (let worker of workersData) {
-            let propietario = "No asignado";
-            if (worker.codigo_casa) {
-              const codigoLimpio = worker.codigo_casa.trim();
-              let { data: dirData } = await supabaseClient
-                .from('directorio')
-                .select('*')
-                .ilike('Codigo', codigoLimpio)
-                .maybeSingle();
+          workersList = workersData.map(worker => {
+            // Extraemos usando estrictamente la mayúscula que viene de la BD
+            const nombrePropietario = worker.directorio?.Propietario || "No asignado";
 
-              if (!dirData) {
-                const { data: dirDataAlt } = await supabaseClient
-                  .from('directorio')
-                  .select('*')
-                  .ilike('codigo', codigoLimpio)
-                  .maybeSingle();
-                dirData = dirDataAlt;
-              }
-
-              if (dirData) {
-                propietario = dirData.Propietario || dirData.propietario || "No asignado";
-              }
-            }
-            workersList.push({ ...worker, propietario });
-          }
+            return {
+              ...worker,
+              propietario: nombrePropietario
+            };
+          });
         }
       } else {
-        // Local Demo Mode (filtra todos los que coincidan con el DNI)
+        // Local Demo Mode
         workersList = demoWorkers.filter(w => w.dni === dni);
       }
 
@@ -524,49 +512,6 @@
       htmlContent += `</div></div>`;
       container.innerHTML = htmlContent;
     }
-
-    // async function confirmarIngreso() {
-    //   if (!currentValidatedWorker) return;
-
-    //   const data = currentValidatedWorker;
-
-    //   if (supabaseClient && !IS_DEMO) {
-    //     await supabaseClient
-    //       .from('historial_ingresos')
-    //       .insert([{
-    //         dni: data.dni,
-    //         nombre_trabajador: data.nombre,
-    //         codigo_casa: data.codigo_casa,
-    //         propietario: data.propietario,
-    //         estado: 'PERMITIDO',
-    //         motivo: 'SCTR OK'
-    //       }]);
-    //   } else {
-    //     // Local Demo save
-    //     demoHistory.unshift({
-    //       id: Date.now(),
-    //       created_at: new Date().toISOString(),
-    //       fecha_salida: null,
-    //       dni: data.dni,
-    //       nombre_trabajador: data.nombre,
-    //       codigo_casa: data.codigo_casa,
-    //       propietario: data.propietario,
-    //       estado: 'PERMITIDO',
-    //       motivo: 'SCTR OK'
-    //     });
-    //   }
-
-    //   // Reset Form immediately
-    //   document.getElementById("dniInput").value = "";
-    //   document.getElementById("resultadoContainer").classList.add("hidden");
-    //   currentValidatedWorker = null;
-
-    //   // Refocus input
-    //   document.getElementById("dniInput").focus();
-
-    //   // Refresh background lists
-    //   cargarTrabajadoresEnObra();
-    // }
 
     async function confirmarIngreso(index) {
       if (!currentValidatedWorkers || currentValidatedWorkers.length === 0) return;
