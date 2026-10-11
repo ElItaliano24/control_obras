@@ -543,7 +543,7 @@
 
       const { data } = await supabaseClient
         .from('historial_ingresos')
-        .select('*')
+        .select('id, dni, nombre_trabajador, codigo_casa, propietario, created_at')
         .is('fecha_salida', null)
         .eq('estado', 'PERMITIDO')
         .order('created_at', { ascending: false });
