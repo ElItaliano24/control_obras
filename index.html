@@ -514,21 +514,16 @@
       // Diferenciar la observación para Excel
       const textoObservacion = esCeleste ? 'CELESTE' : 'OBRAS';
 
-      // Si es Celeste, conserva el propietario/casa Y le agrega el código del carnet
-      let propietarioFinal = data.propietario || "Sin casa asignada";
-      if (esCeleste && data.codigo_fotocheck) {
-        propietarioFinal = `💳 ${data.codigo_fotocheck} - ${propietarioFinal}`;
-      }
-
       await supabaseClient
         .from('historial_ingresos')
         .insert([{
           dni: data.dni,
           nombre_trabajador: data.nombre_completo,
           codigo_casa: data.codigo_casa,
-          propietario: propietarioFinal, // 👈 Ej: "💳 Carnet C12 - Sin casa asignada"
+          propietario: data.propietario, // 👈 AHORA SÍ: Va 100% limpio ("Sin casa asignada" o "WOODMAN...")
+          codigo_carnet: esCeleste ? data.codigo_fotocheck : null, // 👈 NUEVO: Guarda el C413 aquí
           estado: 'PERMITIDO',
-          observaciones: textoObservacion // 👈 Mantiene 'CELESTE' para Excel
+          observaciones: textoObservacion // 👈 "CELESTE"
         }]);
 
       setTimeout(() => {
@@ -549,7 +544,7 @@
 
       const { data } = await supabaseClient
         .from('historial_ingresos')
-        .select('id, dni, nombre_trabajador, codigo_casa, propietario, observaciones, created_at')
+        .select('id, dni, nombre_trabajador, codigo_casa, propietario, observaciones, codigo_carnet, created_at') 
         .is('fecha_salida', null)
         .eq('estado', 'PERMITIDO')
         .order('created_at', { ascending: false });
@@ -588,6 +583,12 @@
         const esCeleste = w.observaciones === 'CELESTE';
 
         const propietarioNombre = w.propietario || `Casa ${w.codigo_casa}`;
+        
+        // 👈 MAGIA VISUAL: Unimos el carnet y el propietario solo para que el vigilante lo vea
+        let textoVisualDestino = propietarioNombre;
+        if (esCeleste && w.codigo_carnet) {
+            textoVisualDestino = `💳 ${w.codigo_carnet} -${propietarioNombre}`;
+        }
 
         // Etiqueta celeste claro para Celestes, etiqueta azul para Obras
         const badgeEstilo = esCeleste
@@ -600,7 +601,7 @@
               <!-- Propietario / Carnet -->
               <div class="flex items-center gap-1.5">
                 <span class="${badgeEstilo} border text-[10px] px-2 py-0.5 rounded truncate max-w-full">
-                  ${propietarioNombre}
+                  ${textoVisualDestino}
                 </span>
               </div>
 
