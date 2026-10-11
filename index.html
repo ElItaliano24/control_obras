@@ -103,15 +103,32 @@
     <section id="tab-validar" class="space-y-4">
 
       <!-- Input Card -->
-      <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-        <label for="dniInput" class="block text-xs font-black text-slate-600 uppercase tracking-wider">
-          Ingrese DNI
-        </label>
+      <!-- Input Card con Selector de Modo Táctil -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4">
 
+        <!-- Selector táctil de modo (Pills) -->
+        <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+          <button id="btnModoSctr" type="button" onclick="setSearchMode('sctr')"
+            class="py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-blue-600 text-white shadow-md shadow-blue-600/20">
+            <span>👷‍♂️DNI (OBRAS)</span>
+          </button>
+
+          <button id="btnModoCeleste" type="button" onclick="setSearchMode('celeste')"
+            class="py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-transparent text-slate-500 hover:text-slate-800">
+            <span>💳 Celestes</span>
+          </button>
+        </div>
+
+        <!-- Campo de entrada adaptativo -->
         <div class="space-y-3">
-          <input type="text" id="dniInput" placeholder="Escriba DNI aquí..." maxlength="12" inputmode="numeric"
+          <label id="lblSearchInput" for="dniInput"
+            class="block text-[11px] font-black text-slate-500 uppercase tracking-wider text-center">
+            Ingrese DNI del trabajador
+          </label>
+
+          <input type="text" id="dniInput" placeholder="Escriba DNI aquí..." maxlength="8" inputmode="numeric"
             autocomplete="off"
-            class="w-full bg-slate-50 border-2 border-slate-300 focus:border-blue-600 focus:bg-white rounded-xl px-4 py-3.5 text-center text-2xl font-black text-slate-900 placeholder-slate-400 outline-none transition-all tracking-widest">
+            class="w-full bg-slate-50 border-2 border-slate-300 focus:border-blue-600 focus:bg-white rounded-xl px-4 py-3.5 text-center text-3xl font-black text-slate-900 placeholder-slate-400 outline-none transition-all tracking-widest">
 
           <button id="btnValidar" onclick="validarDNI()"
             class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all uppercase tracking-wider text-sm">
@@ -119,7 +136,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
             </svg>
-            <span>Validar DNI</span>
+            <span id="btnValidarText">Validar</span>
           </button>
         </div>
       </div>
@@ -220,15 +237,6 @@
           <input type="password" id="cfgKey" placeholder="eyJhbGciOi..."
             class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500">
         </div>
-
-        <label class="flex items-center gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800/80 cursor-pointer">
-          <input type="checkbox" id="cfgDemo"
-            class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
-          <div>
-            <span class="block text-xs font-bold text-white">Activar Modo Demo</span>
-            <span class="block text-[10px] text-slate-400">Usa datos locales de prueba para testear sin BD</span>
-          </div>
-        </label>
       </div>
 
       <button onclick="saveSettings()"
@@ -242,61 +250,12 @@
     // Configuration & State
     let SUPABASE_URL = "https://tvxngammtltditnnsokn.supabase.co";
     let SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2eG5nYW1tdGx0ZGl0bm5zb2tuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMDkyMTEsImV4cCI6MjEwNTg4NTIxMX0.Q9Dav40O7-CAT1IcKVMW2s62QvQfCrR8HauxYNR66Gs";
-    let IS_DEMO = false;
 
     let supabaseClient = null;
     let currentValidatedWorkers = [];
 
-    // Local Demo Data
-    const demoWorkers = [
-      {
-        dni: "70904461",
-        nombre_completo: "Fabricio Joel Miranda Quezada",
-        codigo_casa: "M012",
-        propietario: "REGGIARDO GILL Soraya Consuelo",
-        fecha_inicio: "2026-09-01",
-        fecha_vencimiento: "2026-10-15",
-        aseguradora: "Rimac SCTR",
-        activo: true
-      },
-      {
-        dni: "4015555",
-        nombre_completo: "Carolina Toro",
-        codigo_casa: "M011",
-        propietario: "VARGAS Oscar",
-        fecha_inicio: "2026-09-01",
-        fecha_vencimiento: new Date().toISOString().split('T')[0], // Expires today -> ACTIVO
-        aseguradora: "Pacífico",
-        activo: true
-      },
-      {
-        dni: "12345678",
-        nombre_completo: "Juan Pérez Obrero",
-        codigo_casa: "M005",
-        propietario: "MEJIA INFANTE Alejandro",
-        fecha_inicio: "2026-01-01",
-        fecha_vencimiento: "2026-08-15", // Expired
-        aseguradora: "Rimac SCTR",
-        activo: true
-      }
-    ];
-
-    let demoHistory = [
-      {
-        id: 101,
-        created_at: new Date(Date.now() - 3600000 * 2).toISOString(), // 2 hours ago
-        fecha_salida: null,
-        dni: "4015555",
-        nombre_trabajador: "Carolina Toro",
-        codigo_casa: "M011",
-        propietario: "VARGAS Oscar",
-        estado: "PERMITIDO",
-        motivo: "SCTR OK"
-      }
-    ];
-
     function initSupabase() {
-      if (SUPABASE_KEY && !IS_DEMO) {
+      if (SUPABASE_KEY && SUPABASE_URL) {
         try {
           supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
           updateBadgeStatus(true);
@@ -388,45 +347,51 @@
 
     async function validarDNI() {
       const input = document.getElementById("dniInput");
-      const dni = input.value.trim();
+      const query = input.value.trim();
       const container = document.getElementById("resultadoContainer");
 
-      if (!dni) return;
+      if (!query || !supabaseClient) return;
 
       let workersList = [];
 
-      if (supabaseClient && !IS_DEMO) {
-        // 1 SOLA LLAMADA A LA API: Trae todos los registros y cruza con directorio
+      if (currentSearchMode === 'sctr') {
+        // 1. BÚSQUEDA SCTR (Por DNI)
         const { data: workersData, error } = await supabaseClient
           .from('trabajadores_sctr')
-          .select(`
-            *,
-            directorio ( Propietario )
-          `)
-          .eq('dni', dni);
-
-        if (error) console.error("Error de Supabase:", error);
+          .select('*, directorio ( Propietario )')
+          .eq('dni', query);
 
         if (workersData && workersData.length > 0) {
-          workersList = workersData.map(worker => {
-            // Extraemos usando estrictamente la mayúscula que viene de la BD
-            const nombrePropietario = worker.directorio?.Propietario || "No asignado";
-
-            return {
-              ...worker,
-              propietario: nombrePropietario
-            };
-          });
+          workersList = workersData.map(worker => ({
+            ...worker,
+            propietario: worker.directorio?.Propietario || "No asignado",
+            tipo_registro: 'SCTR'
+          }));
         }
       } else {
-        // Local Demo Mode
-        workersList = demoWorkers.filter(w => w.dni === dni);
+        // 2. BÚSQUEDA CELESTES (Por Código Fotocheck, ej: C12)
+        // Nota: Asegúrate de que tu tabla en Supabase se llame 'trabajadores_particulares'
+        const { data: workersData, error } = await supabaseClient
+          .from('trabajadores_particulares')
+          .select('*, directorio ( Propietario )')
+          .eq('codigo_fotocheck', query);
+
+        if (workersData && workersData.length > 0) {
+          workersList = workersData.map(worker => ({
+            dni: worker.dni || '---',
+            nombre_completo: worker.nombre_completo,
+            codigo_casa: worker.codigo_casa,
+            propietario: worker.directorio?.Propietario || (worker.codigo_casa ? `Casa ${worker.codigo_casa}` : "Sin casa asignada"),
+            codigo_fotocheck: worker.codigo_fotocheck,
+            tipo_registro: 'CELESTE'
+          }));
+        }
       }
 
-      renderResultadoCard(workersList, dni);
+      renderResultadoCard(workersList, query);
     }
 
-    function renderResultadoCard(workersList, dni) {
+    function renderResultadoCard(workersList, query) {
       const container = document.getElementById("resultadoContainer");
       container.innerHTML = "";
       container.classList.remove("hidden");
@@ -434,6 +399,7 @@
       // CASO 1: NO REGISTRADO
       if (!workersList || workersList.length === 0) {
         playAudioFeedback(false);
+        const tipoTexto = currentSearchMode === 'celeste' ? 'Fotocheck Celeste' : 'DNI';
         container.innerHTML = `
       <div class="bg-red-50 border-2 border-red-500 rounded-2xl p-5 space-y-3 shadow-md animate-pop">
         <div class="flex items-center gap-2.5 text-red-800">
@@ -443,7 +409,7 @@
           </div>
         </div>
         <p class="text-xs text-red-900 bg-red-100 p-3 rounded-xl border border-red-200 font-medium">
-          El trabajador con DNI <b>${dni}</b> no cuenta con póliza registrada. Acceso denegado.
+          El ${tipoTexto} <b>${query}</b> no se encuentra registrado en el sistema. Acceso denegado.
         </p>
       </div>
     `;
@@ -454,58 +420,71 @@
       currentValidatedWorkers = workersList;
 
       const nombreTrabajador = workersList[0].nombre_completo;
-      // Obtiene la fecha exacta según la zona horaria del dispositivo
+      const esCeleste = workersList[0].tipo_registro === 'CELESTE';
       const now = new Date();
       const hoy = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-      // Encabezado
       let htmlContent = `
     <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-md animate-pop">
       <div class="text-center border-b border-slate-100 pb-3">
-        <span class="text-slate-400 font-bold uppercase text-[10px] block tracking-wider">Trabajador</span>
+        <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase mb-1 ${esCeleste ? 'bg-sky-100 text-sky-800 border border-sky-300' : 'bg-blue-100 text-blue-800 border border-blue-300'}">
+          ${esCeleste ? `💳 Celeste (${workersList[0].codigo_fotocheck})` : '👷‍♂️ Personal de Obra'}
+        </span>
         <span class="text-slate-900 font-black text-lg leading-tight block">${nombreTrabajador}</span>
       </div>
       <h3 class="text-center font-bold text-[13px] text-slate-800">¿A qué casa ingresa hoy?</h3>
       <div class="space-y-3">
   `;
 
-      // Iterar sobre cada casa asignada
       workersList.forEach((worker, index) => {
-        // Separa el año, mes y día para evitar desajustes de zona horaria
-        const [vYear, vMonth, vDay] = worker.fecha_vencimiento.split('-');
-        const vencimiento = new Date(vYear, vMonth - 1, vDay);
-        const diffMs = vencimiento - hoy;
-        const diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        const isActivo = worker.activo && (diasRestantes >= 0);
-
-        if (isActivo) {
-          const badgeDiasText = diasRestantes === 0 ? "Vence hoy" : `Vence en ${diasRestantes} días`;
+        if (esCeleste) {
+          // TARJETA CELESTE (No calcula vencimiento)
           htmlContent += `
-        <div class="bg-emerald-50/50 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+        <div class="bg-sky-50/60 border border-sky-200 rounded-xl p-3.5 space-y-2">
           <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></span>
-            <span class="font-extrabold text-[13px] text-emerald-950">${worker.propietario}</span>
+            <span class="w-2.5 h-2.5 rounded-full bg-sky-500 shadow-sm"></span>
+            <span class="font-extrabold text-[13px] text-sky-950">${worker.propietario}</span>
           </div>
-          <p class="text-[11px] text-emerald-700 font-bold ml-4">SCTR Vigente (${badgeDiasText})</p>
-          <button onclick="confirmarIngreso(${index})" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-emerald-600/20 text-xs transition-all tracking-wide">
+          <button onclick="confirmarIngreso(${index})" class="w-full bg-sky-600 hover:bg-sky-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-sky-600/20 text-xs transition-all tracking-wide uppercase">
             REGISTRAR INGRESO
           </button>
         </div>
       `;
         } else {
-          const diasVencido = Math.abs(diasRestantes);
-          htmlContent += `
-        <div class="bg-red-50/50 border border-red-200 rounded-xl p-3.5 space-y-2 opacity-90">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm"></span>
-            <span class="font-extrabold text-[13px] text-red-950">${worker.propietario}</span>
+          // TARJETA SCTR (Calcula días de vencimiento)
+          const [vYear, vMonth, vDay] = worker.fecha_vencimiento.split('-');
+          const vencimiento = new Date(vYear, vMonth - 1, vDay);
+          const diffMs = vencimiento - hoy;
+          const diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+          if (worker.activo && diasRestantes >= 0) {
+            const badgeDiasText = diasRestantes === 0 ? "Vence hoy" : `Vence en ${diasRestantes} días`;
+            htmlContent += `
+          <div class="bg-emerald-50/50 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></span>
+              <span class="font-extrabold text-[13px] text-emerald-950">${worker.propietario}</span>
+            </div>
+            <p class="text-[11px] text-emerald-700 font-bold ml-4">SCTR Vigente (${badgeDiasText})</p>
+            <button onclick="confirmarIngreso(${index})" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-emerald-600/20 text-xs transition-all tracking-wide uppercase">
+              REGISTRAR INGRESO
+            </button>
           </div>
-          <p class="text-[11px] text-red-700 font-bold ml-4">SCTR Vencido (Venció hace ${diasVencido} días)</p>
-          <button disabled class="w-full bg-slate-200 text-slate-400 font-extrabold py-2.5 rounded-lg text-xs tracking-wide cursor-not-allowed">
-            ACCESO DENEGADO
-          </button>
-        </div>
-      `;
+        `;
+          } else {
+            htmlContent += `
+          <div class="bg-red-50/50 border border-red-200 rounded-xl p-3.5 space-y-2 opacity-90">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm"></span>
+              <span class="font-extrabold text-[13px] text-red-950">${worker.propietario}</span>
+            </div>
+            <p class="text-[11px] text-red-700 font-bold ml-4">SCTR Vencido</p>
+            <button disabled class="w-full bg-slate-200 text-slate-400 font-extrabold py-2.5 rounded-lg text-xs tracking-wide cursor-not-allowed uppercase">
+              ACCESO DENEGADO
+            </button>
+          </div>
+        `;
+          }
         }
       });
 
@@ -514,15 +493,16 @@
     }
 
     async function confirmarIngreso(index) {
-      if (!currentValidatedWorkers || currentValidatedWorkers.length === 0) return;
+      if (!currentValidatedWorkers || currentValidatedWorkers.length === 0 || !supabaseClient) return;
 
       const container = document.getElementById("resultadoContainer");
-      const data = currentValidatedWorkers[index]; // Selecciona la casa elegida
+      const data = currentValidatedWorkers[index];
+      const esCeleste = data.tipo_registro === 'CELESTE';
 
-      // 1. PANTALLA DE ÉXITO VISUAL
+      // Animación de Éxito
       container.innerHTML = `
-    <div class="bg-emerald-600 text-white rounded-2xl p-6 text-center space-y-3 shadow-xl animate-pop">
-      <div class="w-20 h-20 bg-white text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-md">
+    <div class="${esCeleste ? 'bg-sky-600' : 'bg-emerald-600'} text-white rounded-2xl p-6 text-center space-y-3 shadow-xl animate-pop">
+      <div class="w-20 h-20 bg-white ${esCeleste ? 'text-sky-600' : 'text-emerald-600'} rounded-full flex items-center justify-center mx-auto shadow-md">
         <svg class="w-12 h-12 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path>
         </svg>
@@ -531,36 +511,26 @@
     </div>
   `;
 
-      // 2. REGISTRAR EN SUPABASE EN SEGUNDO PLANO
-      if (supabaseClient && !IS_DEMO) {
-        await supabaseClient
-          .from('historial_ingresos')
-          .insert([{
-            dni: data.dni,
-            nombre_trabajador: data.nombre_completo,
-            codigo_casa: data.codigo_casa,
-            propietario: data.propietario,
-            estado: 'PERMITIDO',
-            motivo: 'SCTR OK'
-          }]);
-      } else {
-        // Modo Demo
-        demoHistory.unshift({
-          id: Date.now(),
-          created_at: new Date().toISOString(),
-          fecha_salida: null,
+      // Diferenciar la observación con categorías exactas para facilitar los filtros en Excel
+      const textoObservacion = esCeleste ? 'CELESTE' : 'OBRAS';
+
+      await supabaseClient
+        .from('historial_ingresos')
+        .insert([{
           dni: data.dni,
           nombre_trabajador: data.nombre_completo,
           codigo_casa: data.codigo_casa,
           propietario: data.propietario,
           estado: 'PERMITIDO',
-          motivo: 'SCTR OK'
-        });
-      }
+          observaciones: textoObservacion
+        }]);
 
-      // 3. REINICIAR PANTALLA
       setTimeout(() => {
-        document.getElementById("dniInput").value = "";
+        if (currentSearchMode === 'celeste') {
+          document.getElementById("dniInput").value = "C";
+        } else {
+          document.getElementById("dniInput").value = "";
+        }
         container.classList.add("hidden");
         currentValidatedWorkers = [];
         document.getElementById("dniInput").focus();
@@ -569,22 +539,17 @@
     }
 
     async function cargarTrabajadoresEnObra() {
-      let activos = [];
+      if (!supabaseClient) return;
 
-      if (supabaseClient && !IS_DEMO) {
-        const { data } = await supabaseClient
-          .from('historial_ingresos')
-          .select('*')
-          .is('fecha_salida', null)
-          .eq('estado', 'PERMITIDO')
-          .order('created_at', { ascending: false });
-        activos = data || [];
-      } else {
-        activos = demoHistory.filter(h => h.fecha_salida === null && h.estado === 'PERMITIDO');
-      }
+      const { data } = await supabaseClient
+        .from('historial_ingresos')
+        .select('*')
+        .is('fecha_salida', null)
+        .eq('estado', 'PERMITIDO')
+        .order('created_at', { ascending: false });
 
-      window.cacheEnObra = activos;
-      renderListaEnObra(activos);
+      window.cacheEnObra = data || [];
+      renderListaEnObra(window.cacheEnObra);
     }
 
     function renderListaEnObra(items) {
@@ -669,26 +634,20 @@
     }
 
     async function marcarSalida(idOrDni) {
-
+      if (!supabaseClient) return;
       const horaPeru = new Date().toLocaleString("sv-SE", { timeZone: "America/Lima" });
-      if (supabaseClient && !IS_DEMO) {
-        if (typeof idOrDni === 'number') {
-          await supabaseClient
-            .from('historial_ingresos')
-            .update({ fecha_salida: horaPeru })
-            .eq('id', idOrDni);
-        } else {
-          await supabaseClient
-            .from('historial_ingresos')
-            .update({ fecha_salida: horaPeru })
-            .eq('dni', idOrDni)
-            .is('fecha_salida', null);
-        }
+
+      if (typeof idOrDni === 'number') {
+        await supabaseClient
+          .from('historial_ingresos')
+          .update({ fecha_salida: horaPeru })
+          .eq('id', idOrDni);
       } else {
-        const item = demoHistory.find(h => (h.id === idOrDni || h.dni === idOrDni) && h.fecha_salida === null);
-        if (item) {
-          item.fecha_salida = horaPeru;
-        }
+        await supabaseClient
+          .from('historial_ingresos')
+          .update({ fecha_salida: horaPeru })
+          .eq('dni', idOrDni)
+          .is('fecha_salida', null);
       }
 
       cargarTrabajadoresEnObra();
@@ -716,7 +675,6 @@
     function openSettingsModal() {
       document.getElementById("cfgUrl").value = SUPABASE_URL;
       document.getElementById("cfgKey").value = SUPABASE_KEY;
-      document.getElementById("cfgDemo").checked = IS_DEMO;
       document.getElementById("settingsModal").classList.remove("hidden");
     }
 
@@ -727,11 +685,9 @@
     function saveSettings() {
       SUPABASE_URL = document.getElementById("cfgUrl").value.trim();
       SUPABASE_KEY = document.getElementById("cfgKey").value.trim();
-      IS_DEMO = document.getElementById("cfgDemo").checked;
 
       localStorage.setItem("tot_supa_url", SUPABASE_URL);
       localStorage.setItem("tot_supa_key", SUPABASE_KEY);
-      localStorage.setItem("tot_demo", IS_DEMO);
 
       initSupabase();
       closeSettingsModal();
@@ -748,6 +704,56 @@
     // App Startup
     initSupabase();
     cargarTrabajadoresEnObra();
+
+    let currentSearchMode = 'sctr'; // 'sctr' o 'celeste'
+
+    function setSearchMode(mode) {
+      currentSearchMode = mode;
+      const input = document.getElementById("dniInput");
+      const btnSctr = document.getElementById("btnModoSctr");
+      const btnCeleste = document.getElementById("btnModoCeleste");
+      const lbl = document.getElementById("lblSearchInput");
+      const btnText = document.getElementById("btnValidarText");
+
+      if (mode === 'sctr') {
+        // Apariencia botones
+        btnSctr.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-blue-600 text-white shadow-md shadow-blue-600/20";
+        btnCeleste.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-transparent text-slate-500 hover:text-slate-800";
+
+        // Configuración del campo
+        lbl.innerText = "Ingrese DNI del trabajador";
+        input.placeholder = "Escriba DNI aquí...";
+        input.maxLength = 8;
+        input.value = "";
+        btnText.innerText = "Validar";
+      } else {
+        // Apariencia botones
+        btnCeleste.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-blue-600 text-white shadow-md shadow-blue-600/20";
+        btnSctr.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-transparent text-slate-500 hover:text-slate-800";
+
+        // Configuración del campo
+        lbl.innerText = "Ingrese código de carnet";
+        input.value = "C";
+        input.placeholder = "C2, C10...";
+        input.maxLength = 6;
+        btnText.innerText = "Validar  ";
+      }
+
+      input.focus();
+    }
+
+    // Mantiene la "C" fija y solo deja escribir números a continuación
+    document.getElementById("dniInput").addEventListener("input", function () {
+      if (currentSearchMode === 'celeste') {
+        let raw = this.value.toUpperCase();
+        if (!raw.startsWith("C")) {
+          raw = "C" + raw.replace(/[^0-9]/g, "");
+        } else {
+          raw = "C" + raw.substring(1).replace(/[^0-9]/g, "");
+        }
+        this.value = raw;
+      }
+    });
   </script>
 
 </body>
