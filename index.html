@@ -370,21 +370,43 @@
         }
       } else {
         // 2. BÚSQUEDA CELESTES (Por Código Fotocheck, ej: C12)
-        // Nota: Asegúrate de que tu tabla en Supabase se llame 'trabajadores_particulares'
         const { data: workersData, error } = await supabaseClient
           .from('trabajadores_particulares')
           .select('*, directorio ( Propietario )')
           .eq('codigo_fotocheck', query);
 
         if (workersData && workersData.length > 0) {
-          workersList = workersData.map(worker => ({
-            dni: worker.dni || '---',
-            nombre_completo: worker.nombre_completo,
-            codigo_casa: worker.codigo_casa,
-            propietario: worker.directorio?.Propietario || (worker.codigo_casa ? `Casa ${worker.codigo_casa}` : "Sin casa asignada"),
-            codigo_fotocheck: worker.codigo_fotocheck,
-            tipo_registro: 'CELESTE'
-          }));
+          // Extraemos los datos base del trabajador del primer resultado
+          const datosBase = workersData[0];
+
+          // 1️⃣ Siempre insertamos PRIMERO la opción comodín
+          workersList = [{
+            dni: datosBase.dni || '---',
+            nombre_completo: datosBase.nombre_completo,
+            codigo_casa: null, // Sin casa
+            propietario: "Sin casa asignada",
+            codigo_fotocheck: datosBase.codigo_fotocheck,
+            tipo_registro: 'CELESTE',
+            es_comodin: true // Marca para pintarlo distinto
+          }];
+
+          // 2️⃣ Luego agregamos las casas que SÍ tenga asignadas (si no son null)
+          workersData.forEach(worker => {
+            const propietarioReal = worker.directorio?.Propietario || (worker.codigo_casa ? `Casa ${worker.codigo_casa}` : null);
+
+            // Solo agregamos la opción si realmente tiene una casa/propietario asignado
+            if (propietarioReal && propietarioReal !== "Sin casa asignada") {
+              workersList.push({
+                dni: worker.dni || '---',
+                nombre_completo: worker.nombre_completo,
+                codigo_casa: worker.codigo_casa,
+                propietario: propietarioReal,
+                codigo_fotocheck: worker.codigo_fotocheck,
+                tipo_registro: 'CELESTE',
+                es_comodin: false
+              });
+            }
+          });
         }
       }
 
@@ -428,7 +450,7 @@
     <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-md animate-pop">
       <div class="text-center border-b border-slate-100 pb-3">
         <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase mb-1 ${esCeleste ? 'bg-sky-100 text-sky-800 border border-sky-300' : 'bg-blue-100 text-blue-800 border border-blue-300'}">
-          ${esCeleste ? `💳 Celeste (${workersList[0].codigo_fotocheck})` : '👷‍♂️ Personal de Obra'}
+          ${esCeleste ? `💳 ${workersList[0].codigo_fotocheck}` : '👷‍♂️ Personal de Obra'}
         </span>
         <span class="text-slate-900 font-black text-lg leading-tight block">${nombreTrabajador}</span>
       </div>
@@ -438,8 +460,23 @@
 
       workersList.forEach((worker, index) => {
         if (esCeleste) {
-          // TARJETA CELESTE (No calcula vencimiento)
-          htmlContent += `
+          // TARJETAS CELESTES
+          if (worker.es_comodin) {
+            // TARJETA COMODÍN (Ámbar, de alto contraste para exteriores)
+            htmlContent += `
+        <div class="bg-amber-50 border-2 border-amber-300 border-dashed rounded-xl p-3.5 space-y-2 mb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></span>
+            <span class="font-extrabold text-[13px] text-amber-900">Sin casa asignada</span>
+          </div>
+          <button onclick="confirmarIngreso(${index})" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-amber-950 font-extrabold py-2.5 rounded-lg shadow-sm shadow-amber-500/30 text-xs transition-all tracking-wide uppercase">
+            REGISTRAR INGRESO
+          </button>
+        </div>
+      `;
+          } else {
+            // TARJETA NORMAL (Celeste)
+            htmlContent += `
         <div class="bg-sky-50/60 border border-sky-200 rounded-xl p-3.5 space-y-2">
           <div class="flex items-center gap-2">
             <span class="w-2.5 h-2.5 rounded-full bg-sky-500 shadow-sm"></span>
@@ -450,6 +487,7 @@
           </button>
         </div>
       `;
+          }
         } else {
           // TARJETA SCTR (Calcula días de vencimiento)
           const [vYear, vMonth, vDay] = worker.fecha_vencimiento.split('-');
@@ -544,7 +582,7 @@
 
       const { data } = await supabaseClient
         .from('historial_ingresos')
-        .select('id, dni, nombre_trabajador, codigo_casa, propietario, observaciones, codigo_carnet, created_at') 
+        .select('id, dni, nombre_trabajador, codigo_casa, propietario, observaciones, codigo_carnet, created_at')
         .is('fecha_salida', null)
         .eq('estado', 'PERMITIDO')
         .order('created_at', { ascending: false });
@@ -583,11 +621,11 @@
         const esCeleste = w.observaciones === 'CELESTE';
 
         const propietarioNombre = w.propietario || `Casa ${w.codigo_casa}`;
-        
+
         // 👈 MAGIA VISUAL: Unimos el carnet y el propietario solo para que el vigilante lo vea
         let textoVisualDestino = propietarioNombre;
         if (esCeleste && w.codigo_carnet) {
-            textoVisualDestino = `💳 ${w.codigo_carnet} -${propietarioNombre}`;
+          textoVisualDestino = `💳 ${w.codigo_carnet} -${propietarioNombre}`;
         }
 
         // Etiqueta celeste claro para Celestes, etiqueta azul para Obras
