@@ -82,7 +82,7 @@
       </div>
       <div>
         <h1 class="font-extrabold text-base tracking-wider text-slate-900 leading-tight">TOTORITAS</h1>
-        <p class="text-[10px] text-slate-500 font-bold tracking-tight">Control de Garita & SCTR</p>
+        <p class="text-[10px] text-slate-500 font-bold tracking-tight">Control de Garita</p>
       </div>
     </div>
 
@@ -676,7 +676,8 @@
       const filtrados = window.cacheEnObra.filter(w =>
         (w.nombre_trabajador && w.nombre_trabajador.toLowerCase().includes(q)) ||
         (w.dni && w.dni.includes(q)) ||
-        (w.propietario && w.propietario.toLowerCase().includes(q))
+        (w.propietario && w.propietario.toLowerCase().includes(q)) ||
+        (w.codigo_carnet && w.codigo_carnet.toLowerCase().includes(q))
       );
 
       renderListaEnObra(filtrados);
