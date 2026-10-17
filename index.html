@@ -107,15 +107,20 @@
       <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4">
 
         <!-- Selector táctil de modo (Pills) -->
-        <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+        <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
           <button id="btnModoSctr" type="button" onclick="setSearchMode('sctr')"
-            class="py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-blue-600 text-white shadow-md shadow-blue-600/20">
-            <span>👷‍♂️OBRAS</span>
+            class="py-2.5 px-2 rounded-lg text-[11px] font-black transition-all flex items-center justify-center gap-1 bg-blue-600 text-white shadow-md shadow-blue-600/20">
+            <span>👷‍♂️ OBRAS</span>
           </button>
 
           <button id="btnModoCeleste" type="button" onclick="setSearchMode('celeste')"
-            class="py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-transparent text-slate-500 hover:text-slate-800">
-            <span>💳 Celestes</span>
+            class="py-2.5 px-2 rounded-lg text-[11px] font-black transition-all flex items-center justify-center gap-1 bg-transparent text-slate-500 hover:text-slate-800">
+            <span>💳 CELESTE</span>
+          </button>
+
+          <button id="btnModoVerde" type="button" onclick="setSearchMode('verde')"
+            class="py-2.5 px-2 rounded-lg text-[11px] font-black transition-all flex items-center justify-center gap-1 bg-transparent text-slate-500 hover:text-slate-800">
+            <span>🌿 VERDE</span>
           </button>
         </div>
 
@@ -367,7 +372,7 @@
             tipo_registro: 'SCTR'
           }));
         }
-      } else {
+      } else if (currentSearchMode === 'celeste') {
         // 2. BÚSQUEDA CELESTES (Por Código Fotocheck, ej: C12)
         const { data: workersData, error } = await supabaseClient
           .from('trabajadores_particulares')
@@ -407,6 +412,58 @@
             }
           });
         }
+      } else if (currentSearchMode === 'verde') {
+        // 3. BÚSQUEDA VERDES (Por Código Fotocheck 'V...')
+        const { data: verdesData } = await supabaseClient
+          .from('trabajadores_verdes')
+          .select('*')
+          .eq('codigo_fotocheck', query);
+
+        if (verdesData && verdesData.length > 0) {
+          const datosBase = verdesData[0];
+
+          // 1️⃣ Insertamos UN SOLO comodín "Sin casa asignada" al inicio
+          workersList.push({
+            dni: datosBase.dni || '---',
+            nombre_completo: datosBase.nombre_completo,
+            codigo_casa: null,
+            propietario: "Sin casa asignada",
+            codigo_fotocheck: datosBase.codigo_fotocheck,
+            tipo_registro: 'VERDE',
+            es_comodin: true
+          });
+
+          // 2️⃣ Obtenemos las casas reales de todos los Celestes asociados (sin duplicar comodines ni casas)
+          for (const verde of verdesData) {
+            if (verde.codigo_celeste) {
+              const { data: celesteData } = await supabaseClient
+                .from('trabajadores_particulares')
+                .select('codigo_casa, directorio(Propietario)')
+                .eq('codigo_fotocheck', verde.codigo_celeste);
+
+              if (celesteData) {
+                celesteData.forEach(c => {
+                  const propietarioReal = c.directorio?.Propietario || (c.codigo_casa ? `Casa ${c.codigo_casa}` : null);
+
+                  // Solo agregamos si es una casa real y no se ha agregado previamente
+                  if (propietarioReal && propietarioReal !== "Sin casa asignada") {
+                    if (!workersList.some(w => w.propietario === propietarioReal)) {
+                      workersList.push({
+                        dni: verde.dni || '---',
+                        nombre_completo: verde.nombre_completo,
+                        codigo_casa: c.codigo_casa,
+                        propietario: propietarioReal,
+                        codigo_fotocheck: verde.codigo_fotocheck,
+                        tipo_registro: 'VERDE',
+                        es_comodin: false
+                      });
+                    }
+                  }
+                });
+              }
+            }
+          }
+        }
       }
 
       renderResultadoCard(workersList, query);
@@ -431,7 +488,11 @@
       // CASO 1: NO REGISTRADO
       if (!workersList || workersList.length === 0) {
         playAudioFeedback(false);
-        const tipoTexto = currentSearchMode === 'celeste' ? 'Fotocheck Celeste' : 'DNI';
+
+        let tipoTexto = 'DNI';
+        if (currentSearchMode === 'celeste') tipoTexto = 'Fotocheck Celeste';
+        if (currentSearchMode === 'verde') tipoTexto = 'Fotocheck Verde';
+
         container.innerHTML = `
       <div class="bg-red-50 border-2 border-red-500 rounded-2xl p-5 space-y-3 shadow-md animate-pop">
         <div class="flex items-center gap-2.5 text-red-800">
@@ -452,15 +513,27 @@
       currentValidatedWorkers = workersList;
 
       const nombreTrabajador = workersList[0].nombre_completo;
-      const esCeleste = workersList[0].tipo_registro === 'CELESTE';
+      const tipoRegistro = workersList[0].tipo_registro; // 'SCTR', 'CELESTE' o 'VERDE'
       const now = new Date();
       const hoy = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // Configuración del Badge superior (Cabecera)
+      let textoBadgeHeader = '👷‍♂️ Personal de Obra';
+      let estiloBadgeHeader = 'bg-blue-100 text-blue-800 border-blue-300';
+
+      if (tipoRegistro === 'CELESTE') {
+        textoBadgeHeader = `💳 ${workersList[0].codigo_fotocheck}`;
+        estiloBadgeHeader = 'bg-sky-100 text-sky-800 border-sky-300';
+      } else if (tipoRegistro === 'VERDE') {
+        textoBadgeHeader = `🌿 ${workersList[0].codigo_fotocheck}`;
+        estiloBadgeHeader = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+      }
 
       let htmlContent = `
     <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-md animate-pop">
       <div class="text-center border-b border-slate-100 pb-3">
-        <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase mb-1 ${esCeleste ? 'bg-sky-100 text-sky-800 border border-sky-300' : 'bg-blue-100 text-blue-800 border border-blue-300'}">
-          ${esCeleste ? `💳 ${workersList[0].codigo_fotocheck}` : '👷‍♂️ Personal de Obra'}
+        <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase mb-1 border ${estiloBadgeHeader}">
+          ${textoBadgeHeader}
         </span>
         <span class="text-slate-900 font-black text-lg leading-tight block">${nombreTrabajador}</span>
       </div>
@@ -469,65 +542,109 @@
   `;
 
       workersList.forEach((worker, index) => {
-        if (esCeleste) {
-          // TARJETAS CELESTES
-          if (worker.es_comodin) {
-            // TARJETA COMODÍN (Ámbar, de alto contraste para exteriores)
-            htmlContent += `
-        <div class="bg-amber-50 border-2 border-amber-300 border-dashed rounded-xl p-3.5 space-y-2 mb-2">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></span>
-            <span class="font-extrabold text-[13px] text-amber-900">Sin casa asignada</span>
-          </div>
 
-          <!-- BOTÓN PLACA ADAPTADO A ÁMBAR -->
-          <div class="flex justify-end mb-2 mt-1">
-            <button onclick="togglePlaca(${index})" class="w-1/2 bg-white border-2 border-amber-500 text-amber-900 font-extrabold py-2 px-2 rounded-lg text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:bg-amber-100 active:scale-95 transition-all uppercase tracking-wide">
-              <img src="iconos/carro.svg" class="w-4 h-4" style="filter: invert(41%) sepia(85%) saturate(1021%) hue-rotate(1deg) brightness(97%) contrast(93%);" alt="Auto">
-              AGREGAR PLACA
+        // ----------------------------------------------------
+        // OPCIÓN A: TRABAJADOR VERDE
+        // ----------------------------------------------------
+        if (tipoRegistro === 'VERDE') {
+          if (worker.propietario === "Sin casa asignada" || worker.es_comodin) {
+            // TARJETA ÁMBAR (Sin casa asignada)
+            htmlContent += `
+          <div class="bg-amber-50 border-2 border-amber-300 border-dashed rounded-xl p-3.5 space-y-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></span>
+              <span class="font-extrabold text-[13px] text-amber-900">Sin casa asignada</span>
+            </div>
+            <div class="flex justify-end mb-2 mt-1">
+              <button onclick="togglePlaca(${index})" class="w-1/2 bg-white border-2 border-amber-500 text-amber-900 font-extrabold py-2 px-2 rounded-lg text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:bg-amber-100 active:scale-95 transition-all uppercase tracking-wide">
+                <img src="iconos/carro.svg" class="w-4 h-4" style="filter: invert(41%) sepia(85%) saturate(1021%) hue-rotate(1deg) brightness(97%) contrast(93%);" alt="Auto">
+                AGREGAR PLACA
+              </button>
+            </div>
+            <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
+              <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-amber-500 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-400 focus:bg-amber-50 focus:outline-none uppercase tracking-widest shadow-inner">
+            </div>
+            <button onclick="confirmarIngreso(${index})" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-amber-950 font-extrabold py-2.5 rounded-lg shadow-sm shadow-amber-500/30 text-xs transition-all tracking-wide uppercase">
+              REGISTRAR INGRESO
             </button>
           </div>
-          
-          <!-- CONTENEDOR PLACA ADAPTADO A ÁMBAR -->
-          <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
-            <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-amber-500 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-400 focus:bg-amber-50 focus:outline-none uppercase tracking-widest shadow-inner">
-          </div>
-          
-          <button onclick="confirmarIngreso(${index})" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-amber-950 font-extrabold py-2.5 rounded-lg shadow-sm shadow-amber-500/30 text-xs transition-all tracking-wide uppercase">
-            REGISTRAR INGRESO
-          </button>
-        </div>
-      `;
+        `;
           } else {
-            // TARJETA NORMAL (Celeste)
+            // TARJETA ESMERALDA (Con casa asignada)
             htmlContent += `
-        <div class="bg-sky-50/60 border border-sky-200 rounded-xl p-3.5 space-y-2">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-sky-500 shadow-sm"></span>
-            <span class="font-extrabold text-[13px] text-sky-950">${worker.propietario}</span>
-          </div>
-
-          <!-- BOTÓN PLACA -->
-          <div class="flex justify-end mb-2 mt-1">
-            <button onclick="togglePlaca(${index})" class="w-1/2 bg-white border-2 border-blue-600 text-blue-800 font-extrabold py-2 px-2 rounded-lg text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:bg-blue-50 active:scale-95 transition-all uppercase tracking-wide">
-              <img src="iconos/carro.svg" class="w-4 h-4" style="filter: invert(27%) sepia(91%) saturate(2352%) hue-rotate(213deg) brightness(93%) contrast(97%);" alt="Auto">
-              AGREGAR PLACA
+          <div class="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></span>
+              <span class="font-extrabold text-[13px] text-emerald-950">${worker.propietario}</span>
+            </div>
+            <div class="flex justify-end mb-2 mt-1">
+              <button onclick="togglePlaca(${index})" class="w-1/2 bg-white border-2 border-emerald-600 text-emerald-900 font-extrabold py-2 px-2 rounded-lg text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:bg-emerald-100 active:scale-95 transition-all uppercase tracking-wide">
+                <img src="iconos/carro.svg" class="w-4 h-4" style="filter: invert(32%) sepia(80%) saturate(1200%) hue-rotate(120deg) brightness(92%) contrast(98%);" alt="Auto">
+                AGREGAR PLACA
+              </button>
+            </div>
+            <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
+              <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-emerald-600 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-400 focus:bg-emerald-50 focus:outline-none uppercase tracking-widest shadow-inner">
+            </div>
+            <button onclick="confirmarIngreso(${index})" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-emerald-600/20 text-xs transition-all tracking-wide uppercase">
+              REGISTRAR INGRESO
             </button>
           </div>
-          
-          <!-- CONTENEDOR PLACA -->
-          <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
-            <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-blue-600 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-500 focus:bg-blue-50 focus:outline-none uppercase tracking-widest shadow-inner">
-          </div>
-
-          <button onclick="confirmarIngreso(${index})" class="w-full bg-sky-600 hover:bg-sky-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-sky-600/20 text-xs transition-all tracking-wide uppercase">
-            REGISTRAR INGRESO
-          </button>
-        </div>
-      `;
+        `;
           }
+
+          // ----------------------------------------------------
+          // OPCIÓN B: TRABAJADOR CELESTE
+          // ----------------------------------------------------
+        } else if (tipoRegistro === 'CELESTE') {
+          if (worker.es_comodin) {
+            htmlContent += `
+          <div class="bg-amber-50 border-2 border-amber-300 border-dashed rounded-xl p-3.5 space-y-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></span>
+              <span class="font-extrabold text-[13px] text-amber-900">Sin casa asignada</span>
+            </div>
+            <div class="flex justify-end mb-2 mt-1">
+              <button onclick="togglePlaca(${index})" class="w-1/2 bg-white border-2 border-amber-500 text-amber-900 font-extrabold py-2 px-2 rounded-lg text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:bg-amber-100 active:scale-95 transition-all uppercase tracking-wide">
+                <img src="iconos/carro.svg" class="w-4 h-4" style="filter: invert(41%) sepia(85%) saturate(1021%) hue-rotate(1deg) brightness(97%) contrast(93%);" alt="Auto">
+                AGREGAR PLACA
+              </button>
+            </div>
+            <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
+              <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-amber-500 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-400 focus:bg-amber-50 focus:outline-none uppercase tracking-widest shadow-inner">
+            </div>
+            <button onclick="confirmarIngreso(${index})" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-amber-950 font-extrabold py-2.5 rounded-lg shadow-sm shadow-amber-500/30 text-xs transition-all tracking-wide uppercase">
+              REGISTRAR INGRESO
+            </button>
+          </div>
+        `;
+          } else {
+            htmlContent += `
+          <div class="bg-sky-50/60 border border-sky-200 rounded-xl p-3.5 space-y-2">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-sky-500 shadow-sm"></span>
+              <span class="font-extrabold text-[13px] text-sky-950">${worker.propietario}</span>
+            </div>
+            <div class="flex justify-end mb-2 mt-1">
+              <button onclick="togglePlaca(${index})" class="w-1/2 bg-white border-2 border-blue-600 text-blue-800 font-extrabold py-2 px-2 rounded-lg text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:bg-blue-50 active:scale-95 transition-all uppercase tracking-wide">
+                <img src="iconos/carro.svg" class="w-4 h-4" style="filter: invert(27%) sepia(91%) saturate(2352%) hue-rotate(213deg) brightness(93%) contrast(97%);" alt="Auto">
+                AGREGAR PLACA
+              </button>
+            </div>
+            <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
+              <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-blue-600 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-500 focus:bg-blue-50 focus:outline-none uppercase tracking-widest shadow-inner">
+            </div>
+            <button onclick="confirmarIngreso(${index})" class="w-full bg-sky-600 hover:bg-sky-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-sky-600/20 text-xs transition-all tracking-wide uppercase">
+              REGISTRAR INGRESO
+            </button>
+          </div>
+        `;
+          }
+
+          // ----------------------------------------------------
+          // OPCIÓN C: TRABAJADOR SCTR (OBRAS)
+          // ----------------------------------------------------
         } else {
-          // TARJETA SCTR (Calcula días de vencimiento)
           const [vYear, vMonth, vDay] = worker.fecha_vencimiento.split('-');
           const vencimiento = new Date(vYear, vMonth - 1, vDay);
           const diffMs = vencimiento - hoy;
@@ -542,15 +659,12 @@
               <span class="font-extrabold text-[13px] text-emerald-950">${worker.propietario}</span>
             </div>
             <p class="text-[11px] text-emerald-700 font-bold ml-4">SCTR Vigente (${badgeDiasText})</p>
-            <!-- BOTÓN PLACA ADAPTADO A VERDE/EMERALD -->
             <div class="flex justify-end mb-2 mt-1">
               <button onclick="togglePlaca(${index})" class="w-1/2 bg-white border-2 border-emerald-600 text-emerald-900 font-extrabold py-2 px-2 rounded-lg text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:bg-emerald-100 active:scale-95 transition-all uppercase tracking-wide">
                 <img src="iconos/carro.svg" class="w-4 h-4" style="filter: invert(32%) sepia(80%) saturate(1200%) hue-rotate(120deg) brightness(92%) contrast(98%);" alt="Auto">
                 AGREGAR PLACA
               </button>
             </div>
-            
-            <!-- CONTENEDOR PLACA ADAPTADO A VERDE/EMERALD -->
             <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
               <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-emerald-600 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-400 focus:bg-emerald-50 focus:outline-none uppercase tracking-widest shadow-inner">
             </div>
@@ -605,7 +719,7 @@
   `;
 
       // Diferenciar la observación para Excel
-      const textoObservacion = esCeleste ? 'CELESTE' : 'OBRAS';
+      const textoObservacion = data.tipo_registro === 'CELESTE' ? 'CELESTE' : (data.tipo_registro === 'VERDE' ? 'VERDE' : 'OBRAS');
 
       await supabaseClient
         .from('historial_ingresos')
@@ -614,7 +728,7 @@
           nombre_trabajador: data.nombre_completo,
           codigo_casa: data.codigo_casa,
           propietario: data.propietario, // 👈 AHORA SÍ: Va 100% limpio ("Sin casa asignada" o "WOODMAN...")
-          codigo_carnet: esCeleste ? data.codigo_fotocheck : null, // 👈 NUEVO: Guarda el C413 aquí
+          codigo_carnet: (esCeleste || data.tipo_registro === 'VERDE') ? data.codigo_fotocheck : null,
           estado: 'PERMITIDO',
           observaciones: textoObservacion, // 👈 "CELESTE"
           placa: placaValue
@@ -623,6 +737,8 @@
       setTimeout(() => {
         if (currentSearchMode === 'celeste') {
           document.getElementById("dniInput").value = "C";
+        } else if (currentSearchMode === 'verde') {
+          document.getElementById("dniInput").value = "V";
         } else {
           document.getElementById("dniInput").value = "";
         }
@@ -675,22 +791,26 @@
       container.innerHTML = items.map(w => {
         const hora = new Date(w.created_at).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
         const esCeleste = w.observaciones === 'CELESTE';
+        const esVerde = w.observaciones === 'VERDE';
 
         const propietarioNombre = w.propietario || `Casa ${w.codigo_casa}`;
 
-        // 👈 MAGIA VISUAL: Unimos el carnet y el propietario solo para que el vigilante lo vea
         let textoVisualDestino = propietarioNombre;
         if (esCeleste && w.codigo_carnet) {
-          textoVisualDestino = `💳 ${w.codigo_carnet} -${propietarioNombre}`;
+          textoVisualDestino = `💳 ${w.codigo_carnet} - ${propietarioNombre}`;
+        } else if (esVerde && w.codigo_carnet) {
+          textoVisualDestino = `🌿 ${w.codigo_carnet} - ${propietarioNombre}`;
         }
 
-        // Etiqueta celeste claro para Celestes, etiqueta azul para Obras
-        const badgeEstilo = esCeleste
-          ? 'bg-sky-100 text-sky-950 border-sky-300 font-extrabold'
-          : 'bg-blue-100 text-blue-950 border-blue-300 font-bold';
+        let badgeEstilo = 'bg-blue-100 text-blue-950 border-blue-300 font-bold';
+        if (esCeleste) {
+          badgeEstilo = 'bg-sky-100 text-sky-950 border-sky-300 font-extrabold';
+        } else if (esVerde) {
+          badgeEstilo = 'bg-emerald-100 text-emerald-950 border-emerald-300 font-extrabold';
+        }
 
-        
-          const badgePlaca = w.placa
+
+        const badgePlaca = w.placa
           ? `<span class="bg-slate-800 text-white px-2 py-0.5 rounded text-[10px] font-black tracking-wider flex items-center gap-1"><img src="iconos/carro.svg" class="w-3.5 h-3.5 invert" alt="Auto"> ${w.placa}</span>`
           : '';
 
@@ -718,7 +838,7 @@
 
             <!-- Botón Salida -->
             <button 
-              onclick="marcarSalida(${w.id || `'\${w.dni}'`})" 
+              onclick="marcarSalida(${w.id || `'${w.dni}'`})" 
               class="bg-red-600 hover:bg-red-700 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all flex items-center gap-1 shadow-md shadow-red-600/20 tracking-wide uppercase"
             >
               <span>Salida</span>
@@ -740,7 +860,7 @@
         (w.dni && w.dni.includes(q)) ||
         (w.propietario && w.propietario.toLowerCase().includes(q)) ||
         (w.codigo_carnet && w.codigo_carnet.toLowerCase().includes(q)) ||
-          (w.placa && w.placa.toLowerCase().includes(q))
+        (w.placa && w.placa.toLowerCase().includes(q))
       );
 
       renderListaEnObra(filtrados);
@@ -818,20 +938,25 @@
     initSupabase();
     cargarTrabajadoresEnObra();
 
-    let currentSearchMode = 'sctr'; // 'sctr' o 'celeste'
+    let currentSearchMode = 'sctr'; // 'sctr', 'celeste' o 'verde'
 
     function setSearchMode(mode) {
       currentSearchMode = mode;
       const input = document.getElementById("dniInput");
       const btnSctr = document.getElementById("btnModoSctr");
       const btnCeleste = document.getElementById("btnModoCeleste");
+      const btnVerde = document.getElementById("btnModoVerde");
       const lbl = document.getElementById("lblSearchInput");
       const btnText = document.getElementById("btnValidarText");
+
+      const clsInactivo = "py-2.5 px-2 rounded-lg text-[11px] font-black transition-all flex items-center justify-center gap-1 bg-transparent text-slate-500 hover:text-slate-800";
+      const clsActivo = "py-2.5 px-2 rounded-lg text-[11px] font-black transition-all flex items-center justify-center gap-1 text-white shadow-md";
 
       if (mode === 'sctr') {
         // Apariencia botones
         btnSctr.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-blue-600 text-white shadow-md shadow-blue-600/20";
-        btnCeleste.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-transparent text-slate-500 hover:text-slate-800";
+        btnCeleste.className = clsInactivo;
+        btnVerde.className = clsInactivo;
 
         // Configuración del campo
         lbl.innerText = "Ingrese DNI del trabajador";
@@ -839,30 +964,53 @@
         input.removeAttribute("maxlength");
         input.value = "";
         btnText.innerText = "Validar";
-      } else {
+
+      } else if (mode === 'celeste') {
         // Apariencia botones
-        btnCeleste.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-blue-600 text-white shadow-md shadow-blue-600/20";
-        btnSctr.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-transparent text-slate-500 hover:text-slate-800";
+        btnCeleste.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-sky-500 text-white shadow-md shadow-sky-500/20";
+        btnSctr.className = clsInactivo;
+        btnVerde.className = clsInactivo;
 
         // Configuración del campo
         lbl.innerText = "Ingrese código de carnet";
         input.value = "C";
         input.placeholder = "C2, C10...";
         input.removeAttribute("maxlength");
-        btnText.innerText = "Validar  ";
+        btnText.innerText = "Validar";
+
+      } else if (mode === 'verde') {
+        // Apariencia botones
+        btnVerde.className = "py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 bg-emerald-600 text-white shadow-md shadow-emerald-600/20";
+        btnSctr.className = clsInactivo;
+        btnCeleste.className = clsInactivo;
+
+        // Configuración del campo
+        lbl.innerText = "Ingrese código de carnet";
+        input.value = "V";
+        input.placeholder = "V2, V10...";
+        input.removeAttribute("maxlength");
+        btnText.innerText = "Validar";
       }
 
       input.focus();
     }
 
-    // Mantiene la "C" fija y solo deja escribir números a continuación
     document.getElementById("dniInput").addEventListener("input", function () {
+      let raw = this.value.toUpperCase();
+
       if (currentSearchMode === 'celeste') {
         let raw = this.value.toUpperCase();
         if (!raw.startsWith("C")) {
           raw = "C" + raw.replace(/[^0-9]/g, "");
         } else {
           raw = "C" + raw.substring(1).replace(/[^0-9]/g, "");
+        }
+        this.value = raw;
+      } else if (currentSearchMode === 'verde') {
+        if (!raw.startsWith("V")) {
+          raw = "V" + raw.replace(/[^0-9]/g, "");
+        } else {
+          raw = "V" + raw.substring(1).replace(/[^0-9]/g, "");
         }
         this.value = raw;
       }
