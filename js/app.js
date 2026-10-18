@@ -57,12 +57,15 @@ function switchTab(tab) {
   const inactivoNavCls = "flex flex-col items-center justify-center gap-1 text-slate-800 font-extrabold text-xs transition-colors";
   const activoNavCls = "flex flex-col items-center justify-center gap-1 text-blue-700 font-black text-xs transition-colors";
 
+  const appHeader = document.getElementById("appHeader");
+
   if (tab === 'validar') {
+    if (appHeader) appHeader.classList.remove("hidden");
     document.getElementById("tab-validar").classList.remove("hidden");
     document.getElementById("navBtnValidar").className = activoNavCls;
     document.getElementById("navBtnEnObra").className = inactivoNavCls + " relative";
-    // Ya no forzamos focus() para evitar abrir el teclado automáticamente en el celular
   } else if (tab === 'en-obra') {
+    if (appHeader) appHeader.classList.add("hidden");
     document.getElementById("tab-en-obra").classList.remove("hidden");
     document.getElementById("navBtnValidar").className = inactivoNavCls;
     document.getElementById("navBtnEnObra").className = activoNavCls + " relative";
