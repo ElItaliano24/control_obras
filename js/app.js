@@ -61,7 +61,7 @@ function switchTab(tab) {
     document.getElementById("tab-validar").classList.remove("hidden");
     document.getElementById("navBtnValidar").className = activoNavCls;
     document.getElementById("navBtnEnObra").className = inactivoNavCls + " relative";
-    document.getElementById("dniInput").focus();
+    // Ya no forzamos focus() para evitar abrir el teclado automáticamente en el celular
   } else if (tab === 'en-obra') {
     document.getElementById("tab-en-obra").classList.remove("hidden");
     document.getElementById("navBtnValidar").className = inactivoNavCls;
@@ -123,8 +123,6 @@ function setSearchMode(mode) {
     input.removeAttribute("maxlength");
     btnText.innerText = "Validar";
   }
-
-  input.focus();
 }
 
 // Búsqueda y Validación en Supabase
