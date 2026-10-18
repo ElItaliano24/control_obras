@@ -564,7 +564,7 @@
             <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
               <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-amber-500 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-400 focus:bg-amber-50 focus:outline-none uppercase tracking-widest shadow-inner">
             </div>
-            <button onclick="confirmarIngreso(${index})" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-amber-950 font-extrabold py-2.5 rounded-lg shadow-sm shadow-amber-500/30 text-xs transition-all tracking-wide uppercase">
+            <button id="btnIngreso_${index}" onclick="confirmarIngreso(${index}, this)" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-amber-950 font-extrabold py-2.5 rounded-lg shadow-sm shadow-amber-500/30 text-xs transition-all tracking-wide uppercase disabled:opacity-60 disabled:cursor-not-allowed">
               REGISTRAR INGRESO
             </button>
           </div>
@@ -586,7 +586,7 @@
             <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
               <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-emerald-600 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-400 focus:bg-emerald-50 focus:outline-none uppercase tracking-widest shadow-inner">
             </div>
-            <button onclick="confirmarIngreso(${index})" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-emerald-600/20 text-xs transition-all tracking-wide uppercase">
+            <button id="btnIngreso_${index}" onclick="confirmarIngreso(${index}, this)" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-emerald-600/20 text-xs transition-all tracking-wide uppercase disabled:opacity-60 disabled:cursor-not-allowed">
               REGISTRAR INGRESO
             </button>
           </div>
@@ -613,7 +613,7 @@
             <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
               <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-amber-500 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-400 focus:bg-amber-50 focus:outline-none uppercase tracking-widest shadow-inner">
             </div>
-            <button onclick="confirmarIngreso(${index})" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-amber-950 font-extrabold py-2.5 rounded-lg shadow-sm shadow-amber-500/30 text-xs transition-all tracking-wide uppercase">
+            <button id="btnIngreso_${index}" onclick="confirmarIngreso(${index}, this)" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-amber-950 font-extrabold py-2.5 rounded-lg shadow-sm shadow-amber-500/30 text-xs transition-all tracking-wide uppercase disabled:opacity-60 disabled:cursor-not-allowed">
               REGISTRAR INGRESO
             </button>
           </div>
@@ -634,7 +634,7 @@
             <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
               <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-blue-600 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-500 focus:bg-blue-50 focus:outline-none uppercase tracking-widest shadow-inner">
             </div>
-            <button onclick="confirmarIngreso(${index})" class="w-full bg-sky-600 hover:bg-sky-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-sky-600/20 text-xs transition-all tracking-wide uppercase">
+            <button id="btnIngreso_${index}" onclick="confirmarIngreso(${index}, this)" class="w-full bg-sky-600 hover:bg-sky-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-sky-600/20 text-xs transition-all tracking-wide uppercase disabled:opacity-60 disabled:cursor-not-allowed">
               REGISTRAR INGRESO
             </button>
           </div>
@@ -668,7 +668,7 @@
             <div id="contenedorPlaca_${index}" class="hidden mb-3 transition-all">
               <input type="text" id="placaInput_${index}" placeholder="PLACA (ABC123)" class="w-full bg-white border-2 border-emerald-600 rounded-lg px-3 py-2.5 text-center text-sm font-black text-slate-900 placeholder-slate-400 focus:bg-emerald-50 focus:outline-none uppercase tracking-widest shadow-inner">
             </div>
-            <button onclick="confirmarIngreso(${index})" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-emerald-600/20 text-xs transition-all tracking-wide uppercase">
+            <button id="btnIngreso_${index}" onclick="confirmarIngreso(${index}, this)" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold py-2.5 rounded-lg shadow-sm shadow-emerald-600/20 text-xs transition-all tracking-wide uppercase disabled:opacity-60 disabled:cursor-not-allowed">
               REGISTRAR INGRESO
             </button>
           </div>
@@ -694,8 +694,34 @@
       container.innerHTML = htmlContent;
     }
 
-    async function confirmarIngreso(index) {
+    let isRegistering = false;
+
+    async function confirmarIngreso(index, btnElement) {
+      if (isRegistering) return;
       if (!currentValidatedWorkers || currentValidatedWorkers.length === 0 || !supabaseClient) return;
+
+      isRegistering = true;
+
+      // Deshabilitar todos los botones de ingreso activos para evitar clics múltiples
+      const allActionBtns = document.querySelectorAll('[id^="btnIngreso_"]');
+      allActionBtns.forEach(btn => {
+        btn.disabled = true;
+      });
+
+      // Feedback visual inmediato en el botón seleccionado
+      let originalBtnHtml = "";
+      if (btnElement) {
+        originalBtnHtml = btnElement.innerHTML;
+        btnElement.innerHTML = `
+          <span class="inline-flex items-center justify-center gap-2">
+            <svg class="animate-spin h-3.5 w-3.5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            REGISTRANDO...
+          </span>
+        `;
+      }
 
       const container = document.getElementById("resultadoContainer");
       const data = currentValidatedWorkers[index];
@@ -706,47 +732,65 @@
         ? placaInput.value.trim().toUpperCase()
         : null;
 
-      // Animación de Éxito
-      container.innerHTML = `
-    <div class="${esCeleste ? 'bg-sky-600' : 'bg-emerald-600'} text-white rounded-2xl p-6 text-center space-y-3 shadow-xl animate-pop">
-      <div class="w-20 h-20 bg-white ${esCeleste ? 'text-sky-600' : 'text-emerald-600'} rounded-full flex items-center justify-center mx-auto shadow-md">
-        <svg class="w-12 h-12 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path>
-        </svg>
-      </div>
-      <h2 class="text-2xl font-black tracking-wider uppercase">¡REGISTRADO!</h2>
-    </div>
-  `;
-
       // Diferenciar la observación para Excel
       const textoObservacion = data.tipo_registro === 'CELESTE' ? 'CELESTE' : (data.tipo_registro === 'VERDE' ? 'VERDE' : 'OBRAS');
 
-      await supabaseClient
-        .from('historial_ingresos')
-        .insert([{
-          dni: data.dni,
-          nombre_trabajador: data.nombre_completo,
-          codigo_casa: data.codigo_casa,
-          propietario: data.propietario, // 👈 AHORA SÍ: Va 100% limpio ("Sin casa asignada" o "WOODMAN...")
-          codigo_carnet: (esCeleste || data.tipo_registro === 'VERDE') ? data.codigo_fotocheck : null,
-          estado: 'PERMITIDO',
-          observaciones: textoObservacion, // 👈 "CELESTE"
-          placa: placaValue
-        }]);
+      try {
+        const { error } = await supabaseClient
+          .from('historial_ingresos')
+          .insert([{
+            dni: data.dni,
+            nombre_trabajador: data.nombre_completo,
+            codigo_casa: data.codigo_casa,
+            propietario: data.propietario,
+            codigo_carnet: (esCeleste || data.tipo_registro === 'VERDE') ? data.codigo_fotocheck : null,
+            estado: 'PERMITIDO',
+            observaciones: textoObservacion,
+            placa: placaValue
+          }]);
 
-      setTimeout(() => {
-        if (currentSearchMode === 'celeste') {
-          document.getElementById("dniInput").value = "C";
-        } else if (currentSearchMode === 'verde') {
-          document.getElementById("dniInput").value = "V";
-        } else {
-          document.getElementById("dniInput").value = "";
+        if (error) {
+          throw error;
         }
-        container.classList.add("hidden");
-        currentValidatedWorkers = [];
-        document.getElementById("dniInput").focus();
-        cargarTrabajadoresEnObra();
-      }, 1400);
+
+        // Animación de Éxito
+        container.innerHTML = `
+          <div class="${esCeleste ? 'bg-sky-600' : 'bg-emerald-600'} text-white rounded-2xl p-6 text-center space-y-3 shadow-xl animate-pop">
+            <div class="w-20 h-20 bg-white ${esCeleste ? 'text-sky-600' : 'text-emerald-600'} rounded-full flex items-center justify-center mx-auto shadow-md">
+              <svg class="w-12 h-12 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-black tracking-wider uppercase">¡REGISTRADO!</h2>
+          </div>
+        `;
+
+        setTimeout(() => {
+          if (currentSearchMode === 'celeste') {
+            document.getElementById("dniInput").value = "C";
+          } else if (currentSearchMode === 'verde') {
+            document.getElementById("dniInput").value = "V";
+          } else {
+            document.getElementById("dniInput").value = "";
+          }
+          container.classList.add("hidden");
+          currentValidatedWorkers = [];
+          document.getElementById("dniInput").focus();
+          cargarTrabajadoresEnObra();
+          isRegistering = false;
+        }, 1400);
+
+      } catch (err) {
+        console.error("Error al registrar ingreso:", err);
+        alert("Ocurrió un error al registrar el ingreso. Intente nuevamente.");
+        isRegistering = false;
+        allActionBtns.forEach(btn => {
+          btn.disabled = false;
+        });
+        if (btnElement) {
+          btnElement.innerHTML = originalBtnHtml;
+        }
+      }
     }
 
     async function cargarTrabajadoresEnObra() {
