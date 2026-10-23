@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TOTORITAS — Panel Gerencial</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- ApexCharts CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <!-- SheetJS CDN para generación nativa de Excel (.xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="min-h-full bg-slate-50 text-slate-800 flex flex-col font-sans antialiased">
+
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-lg shadow-md shadow-blue-600/20">
+          T
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-extrabold text-base sm:text-lg text-slate-900 leading-tight tracking-tight">TOTORITAS</h1>
+            <span class="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md">
+              Panel Gerencial
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 font-medium">Métricas y control de accesos mensuales</p>
+        </div>
+      </div>
+
+      <!-- Controls & Actions -->
+      <div class="flex items-center flex-wrap gap-2.5">
+        <!-- Month / Year Selector -->
+        <div class="flex items-center bg-slate-100 border border-slate-200 rounded-xl p-1 gap-1">
+          <select id="selectMonth" onchange="cambiarMes()"
+            class="bg-transparent text-xs font-bold text-slate-700 px-2 py-1.5 rounded-lg outline-none cursor-pointer hover:bg-white transition-all">
+            <!-- Rellenado dinámicamente: mes actual seleccionado por defecto -->
+          </select>
+          <select id="selectYear" onchange="cambiarAnio()"
+            class="bg-transparent text-xs font-bold text-slate-700 px-2 py-1.5 rounded-lg outline-none cursor-pointer hover:bg-white transition-all">
+            <!-- Rellenado dinámicamente -->
+          </select>
+        </div>
+
+        <!-- Botón Exportar CSV/Excel -->
+        <button onclick="exportarExcel()"
+          class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-all active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <span class="hidden sm:inline">Exportar</span> Excel
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Loading Bar Indicator -->
+    <div id="loadingIndicator" class="hidden w-full bg-blue-100 h-1 rounded-full overflow-hidden">
+      <div class="bg-blue-600 h-full w-full animate-pulse"></div>
+    </div>
+
+    <!-- 4 KPI Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- KPI 1: Total Mes -->
+      <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between text-slate-500 mb-2">
+          <span id="kpiTotalLabel" class="text-xs font-bold uppercase tracking-wider text-slate-500">Ingresos Totales</span>
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <h2 id="kpiTotalMes" class="text-3xl font-black text-slate-900 tracking-tight">--</h2>
+        </div>
+      </div>
+
+      <!-- KPI 2: Promedio Diario -->
+      <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between text-slate-500 mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Promedio Diario</span>
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <h2 id="kpiPromedioDia" class="text-3xl font-black text-slate-900 tracking-tight">--</h2>
+          <span class="text-xs text-slate-500 font-bold">/ día</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Día Pico -->
+      <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between text-slate-500 mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Día Pico del Mes</span>
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <h2 id="kpiDiaPicoCantidad" class="text-3xl font-black text-slate-900 tracking-tight">--</h2>
+          <span id="kpiDiaPicoFecha" class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">--</span>
+        </div>
+      </div>
+
+      <!-- KPI 4: Dentro Ahora -->
+      <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between text-slate-500 mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Personal en Condominio</span>
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center relative">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 absolute top-1.5 right-1.5 animate-ping"></span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <h2 id="kpiDentroAhora" class="text-3xl font-black text-emerald-700 tracking-tight">--</h2>
+          <span class="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">Activos</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Main Chart: Smooth Area Chart -->
+    <section class="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+        <div>
+          <h3 class="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
+            Evolución Diaria de Ingresos
+          </h3>
+          <p id="chartSubheading" class="text-xs text-slate-500 font-medium">
+            Tendencia de personas ingresadas por cada día del mes
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+            <span id="chartLegendText">Ingresos diarios</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Contenedor del Gráfico ApexCharts -->
+      <div id="chartContainer" class="w-full min-h-[340px]">
+        <!-- ApexCharts se inyecta aquí -->
+      </div>
+    </section>
+
+    <!-- Secondary Insights: Top Casas & Distribución -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Top 5 Propietarios con Más Movimiento -->
+      <div class="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h4 class="text-sm font-extrabold text-slate-900 uppercase tracking-wider">Top 5 Propietarios con Mayor Movimiento</h4>
+          <span class="text-xs font-medium text-slate-500">Este mes</span>
+        </div>
+        <div id="topCasasContainer" class="space-y-3">
+          <div class="text-xs text-slate-400 py-4 text-center">Cargando datos...</div>
+        </div>
+      </div>
+
+      <!-- Distribución por Tipo de Acceso (Obras / Celeste / Verde) -->
+      <div class="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h4 class="text-sm font-extrabold text-slate-900 uppercase tracking-wider">Distribución por Tipo de Personal</h4>
+          <span class="text-xs font-medium text-slate-500">Este mes</span>
+        </div>
+        <div id="donutChartContainer" class="w-full min-h-[260px] flex items-center justify-center">
+          <!-- Donut chart se inyecta aquí -->
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
+    <p>TOTORITAS &copy; 2026 — Sistema de Gestión y Control de Acceso</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/supabase.js"></script>
+  <script src="js/dashboard.js"></script>
+
+</body>
+
+</html>
